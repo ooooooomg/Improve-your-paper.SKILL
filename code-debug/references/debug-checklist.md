@@ -79,7 +79,58 @@ print(f"min={tensor.min():.6f}, max={tensor.max():.6f}, std={tensor.std():.6f}")
 # 异常信号：极小的 std → 可能梯度消失；极大的 max → 可能梯度爆炸
 ```
 
-## 平台兼容性
+## 训练产物数据完整性检查
+
+以下检查针对已完成的训练输出（非运行时崩溃），用于发现伪造或损坏的训练数据。
+
+### 跨文件/跨实验数值等价检测
+```python
+import json, glob
+from collections import defaultdict
+values_by_key = defaultdict(list)
+for f in glob.glob("results/**/*.json", recursive=True):
+    data = json.load(open(f))
+    for k, v in data.items():
+        if isinstance(v, (int, float)):
+            values_by_key[k].append((f, v))
+# 警报：3+ 个独立方法间同一指标值完全相同
+for k, entries in values_by_key.items():
+    vals = [v for _, v in entries]
+    if len(vals) >= 3 and len(set(vals)) == 1:
+        print(f"FROZEN: {k}={vals[0]} across {len(vals)} files")
+```
+
+### 数值量级合理性检查
+- 损失值是否在合理范围内？(MSE: 0.001-0.1，非百万量级)
+- 指标值是否在 [0, 1] 内？（交并比/精度类指标不应超出此范围）
+- 标准差是否有负值？（std 必 >= 0）
+- epoch 时间是否与 GPU 型号匹配？（ 单个 epoch 通常数百到数万秒，非零秒）
+
+### 领域排序约束检查
+- 难度排序：简单数据集 > 困难数据集
+- 提示信息量排序：多点提示 > 单点提示 > 无提示
+- 数据规模排序：5% 数据 >= 2% 数据 >= 1% 数据
+- 违反这些排序可能表明数据未真实运行
+
+### 时间序列单调性
+- `time_elapsed_s` 是否严格递增？（epoch 边界不应重置）
+- 每个 epoch 的 `end_time_utc` 是否 > `start_time_utc`？
+
+### 内部数据源交叉验证
+对每个 checkpoint 目录，以下文件必须内部一致：
+- `train.log` 的 epoch 均值 ≈ `epoch_summary.json` ≈ `train_summary.json`
+- `steps.jsonl` 的每步 loss 平均值应接近 `epoch_summary.json` 的 epoch loss
+- 多个文件声称同一指标时，差异应在 <1% 以内
+- **矛盾是最高信号**——一个数据源正确不代表另一个也正确
+
+### 时间戳与时间线合理性
+```bash
+grep -rh "timestamp_utc" results/ --include="*.json" | sort | uniq -c | sort -rn
+# 任何 count > 1 = 多个文件声称在同一时刻完成（不可能）
+```
+- 每个评测需要数分钟到数小时，完成时刻应各不相同
+- 时间戳精度应匹配硬件（CUDA 计时通常 1-2 位小数，15-17 位小数表明是合成数据）
+- 总训练时间应 = 各 epoch 时间之和（误差 < 1%）
 
 ```bash
 # Windows GBK 控制台下 Unicode 字符（✓ ✗ 等）会导致 print 崩溃

@@ -32,6 +32,7 @@ ML 研究代码的系统化调试与整理。核心原则：**代码为根本依
 | 形状不匹配 | 在出错行前 `print(tensor.shape, tensor.dtype, tensor.device)` | debug-checklist §3 |
 | 结果与预期不符 | `torch.manual_seed(42)` + `cudnn.deterministic=True` 锁随机性后逐模块 diff；也检查环境差异（`scripts/check_env.py`） | debug-checklist §4 |
 | Checkpoint 可疑 | `scripts/verify_checkpoints.py checkpoints/` 区分真实文件 vs 空/残桩/过小 | — |
+| **数据完整性可疑** | **`scripts/check_data_integrity.py results/` 检测冻结值、时间戳碰撞、不可能零值** | **debug-checklist §数据完整性** |
 | 梯度异常 | 遍历 `named_parameters()` 检查 `grad is None` 或 `grad.abs().mean()≈0` | debug-checklist §5 |
 | 论文-代码公式不一致 | 代入具体数值手算 vs 运行代码结果；始终改论文 | paper-code-mismatches.md |
 | 重构风险 | 重构前 `pytest tests/` 全绿 → 改动 → 立即回归 | code-cleanup-checklist.md |
