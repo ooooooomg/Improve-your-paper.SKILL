@@ -30,10 +30,10 @@ description: Use when responding to reviewer comments (rebuttal, revise-and-resu
 |------|----------|------|
 | 编辑 LaTeX | 精确匹配 `old_string`，多文件改动用 `replace_all` | 先 `grep` 确认范围 |
 | 表格加行 | `\textbf{值}`=最优，`\underline{值}`=次优 | 新增最优行时旧行降级 |
-| 回复信引用核实 | 对每个 `\ref{}` 和章节名 `grep` 论文源码 | 新增章节会使编号整体漂移 |
+| 回复信引用核实 | 对每个 `\ref{}` 和章节名 `grep` 论文源码；提交前跑 `scripts/verify_cross_refs.py &lt;目录&gt;` 做全量扫描 | 新增章节会使编号整体漂移 |
 | .docx 数学对象 | XML 层操作 `lxml.etree`，检查 `w:sz` 为 `"22"` | 绝不用 `paragraph.text =` |
 | latexdiff | `\textcolor{blue}` 替代 `\hl{}`防 `\cite` 崩溃 | 加 `--append-safecmd` 保护自定义命令 |
-| 两版 TeX diff | 按节 `diff` 源码，不用 PDF 文本提取 | PDF 断字和双栏布局产生巨量噪音 |
+| 两版 TeX diff | 按节 `diff` 源码，不用 PDF 文本提取。`scripts/semantic_diff.py old.tex new.tex` 自动按节对比 | PDF 断字和双栏布局产生巨量噪音 |
 | 提交前检查 | 清理 `.aux` `.log` `.out`，更新 `.gitignore` | `grep "undefined" paper.log` |
 
 ## 回复信 (.docx) — 三种静默破坏模式
@@ -42,7 +42,7 @@ description: Use when responding to reviewer comments (rebuttal, revise-and-resu
 2. **字号翻倍** — 未读取现有 `w:sz` 就硬编码，11pt = 半磅值 `"22"`，写成 `"44"` 则字号翻倍
 3. **数学下标丢失** — 清空段落重写时 OMML `m:sSub` 元素被丢弃
 
-**修复流程：发现（提取 XML 看 w:sz/w:rFonts）→ 编辑（修改 w:r 元素，用 OMML m:sSub 处理下标）→ 验证（全文档 w:sz 应唯一值 `"22"`）。** 委托给 `docx` skill 或使用 `lxml.etree` 直接操作 XML。
+**修复流程：发现（提取 XML 看 w:sz/w:rFonts）→ 编辑（修改 w:r 元素，用 OMML m:sSub 处理下标）→ 验证（运行 `scripts/validate_docx_fonts.py file.docx` 检查全文字号字体一致性）。** 委托给 `docx` skill 或使用 `lxml.etree` 直接操作 XML。
 
 ## 高亮 PDF (latexdiff) — soul/ulem 与学术论文不兼容
 

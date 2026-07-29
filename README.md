@@ -1,7 +1,6 @@
 # Academic Skills for Claude Code
 
-此技能从真实结合ai完成论文大修的实际经验中得出，希望能帮到从0开始科研的你。·如果在使用中有任何问题或改进建议，欢迎联系作者AshMe37@outlook.com
-
+此技能从真实结合 AI 完成论文大修的实际经验中得出，希望能帮到从 0 开始科研的你。
 
 ## 安装
 
@@ -23,10 +22,12 @@ cp -r academic-skills/code-debug ~/.claude/skills/
 |------|------|
 | 回复信 (.docx) 中数学公式显示为乱码 | 三种 OMML 静默破坏模式的根因与修复流程 |
 | latexdiff 编译报 `TeX capacity exceeded` | soul/ulem 含 `\cite{}` 时无限递归的根因，以及 `\textcolor` 替代方案 |
-| 回复信引用了论文中不存在的章节或表号 | RIRO（引用进引用出）：每个 `\ref{}` 和章节名必须用 grep 与原稿核实 |
+| 回复信引用了论文中不存在的章节或表号 | RIRO（引用进引用出）：每个 `\ref{}` 和章节名必须用 grep 与原稿核实；提交前跑 `scripts/verify_cross_refs.py` 做全量扫描 |
 | 审稿意见需要组织回复结构 | 12 种审稿意见类型的回复模板（中英双语） |
 | 回复信读起来有 AI 生成痕迹 | AI 痕迹措辞替换清单 |
-| 中英文两版论文内容不同步 | 双语五步同步流程 |
+| 中英文两版论文内容不同步 | 双语五步同步流程；`scripts/semantic_diff.py` 按节对比两个版本 |
+| .docx 字号或字体不统一 | `scripts/validate_docx_fonts.py` 自动检查全文 |
+| 两版论文差异无法可靠对比 | `scripts/semantic_diff.py old.tex new.tex` 按节报告语义变化 |
 
 **技能中包含的 Claude 预训练语料中不存在的内容：**
 
@@ -47,6 +48,9 @@ cp -r academic-skills/code-debug ~/.claude/skills/
 | 代码中包含审稿编号命名的文件和注释 | 代码优先命名原则与开源前整理清单 |
 | ML 代码中存在常见但隐蔽的 bug | 七种 ML 代码 bug 模式速查（zero_grad 位置、BN 模式切换、数据预处理顺序等） |
 | 设置随机种子后结果仍不可复现 | 完整锁定流程：manual_seed + cudnn.deterministic + benchmark + hashseed |
+| CUDA OOM 或驱动版本不一致 | `scripts/check_env.py` 输出完整环境信息（CUDA/驱动/PyTorch/GPU） |
+| Checkpoint 加载后参数全为零或随机值 | `scripts/verify_checkpoints.py` 区分真实 checkpoint 与残桩/空文件 |
+| 结果与预期不符但代码逻辑没问题 | `scripts/check_env.py` 排查环境差异导致的数值偏差 |
 
 **技能中包含的 Claude 预训练语料中不存在的内容：**
 
@@ -70,11 +74,18 @@ cp -r academic-skills/code-debug ~/.claude/skills/
 ├── README.md
 ├── paper-revision/
 │   ├── SKILL.md
+│   ├── scripts/
+│   │   ├── verify_cross_refs.py        # 检查 LaTeX 未定义引用和重复标签
+│   │   ├── semantic_diff.py            # 按章节对比两版 .tex 文件
+│   │   └── validate_docx_fonts.py      # 检测 .docx 字号和字体不一致
 │   └── references/
 │       ├── reviewer-response-patterns.md
 │       └── latex-table-patterns.md
 └── code-debug/
     ├── SKILL.md
+    ├── scripts/
+    │   ├── check_env.py                # 输出 PyTorch/CUDA/cv2 环境信息
+    │   └── verify_checkpoints.py       # 检测 .pt 文件是否真实（非残桩/空文件）
     └── references/
         ├── debug-checklist.md
         ├── paper-code-mismatches.md

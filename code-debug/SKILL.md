@@ -28,9 +28,10 @@ ML 研究代码的系统化调试与整理。核心原则：**代码为根本依
 | 症状 | 首选排查 | 详见 |
 |------|----------|------|
 | Loss=NaN | `torch.autograd.set_detect_anomaly(True)`; 检查 log(0)、除零、lr 过大 | debug-checklist §1 |
-| CUDA OOM | `torch.cuda.memory_summary()`; 检查梯度累积隐式扩 batch | debug-checklist §2 |
+| CUDA OOM | 先跑 `scripts/check_env.py` 确认 CUDA/驱动/PyTorch 版本一致；`torch.cuda.memory_summary()`；检查梯度累积隐式扩 batch | debug-checklist §2 |
 | 形状不匹配 | 在出错行前 `print(tensor.shape, tensor.dtype, tensor.device)` | debug-checklist §3 |
-| 结果与预期不符 | `torch.manual_seed(42)` + `cudnn.deterministic=True` 锁随机性后逐模块 diff | debug-checklist §4 |
+| 结果与预期不符 | `torch.manual_seed(42)` + `cudnn.deterministic=True` 锁随机性后逐模块 diff；也检查环境差异（`scripts/check_env.py`） | debug-checklist §4 |
+| Checkpoint 可疑 | `scripts/verify_checkpoints.py checkpoints/` 区分真实文件 vs 空/残桩/过小 | — |
 | 梯度异常 | 遍历 `named_parameters()` 检查 `grad is None` 或 `grad.abs().mean()≈0` | debug-checklist §5 |
 | 论文-代码公式不一致 | 代入具体数值手算 vs 运行代码结果；始终改论文 | paper-code-mismatches.md |
 | 重构风险 | 重构前 `pytest tests/` 全绿 → 改动 → 立即回归 | code-cleanup-checklist.md |
