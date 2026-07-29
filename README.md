@@ -1,4 +1,4 @@
-# Academic Skills for Claude Code
+# Academic Skills for Agent
 
 此技能从真实结合 AI 完成论文大修的实际经验中得出，希望能帮到从 0 开始科研的你。
 
