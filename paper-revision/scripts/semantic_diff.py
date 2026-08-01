@@ -15,13 +15,13 @@ def split_sections(text: str) -> dict:
     sections = {}
     pattern = r'\\((?:sub)?section)\*?\{(.+?)\}'
     parts = re.split(pattern, text)
-    # parts[0] = preamble, then alternating (section_name, section_body)
+    # parts[0] = preamble, then triples: (command, title, body)
     if len(parts) < 3:
         return {'_preamble': text}
     sections['_preamble'] = parts[0].strip()
-    for i in range(1, len(parts), 2):
-        name = parts[i].strip()
-        body = parts[i+1].strip() if i+1 < len(parts) else ''
+    for i in range(1, len(parts), 3):
+        name = parts[i+1].strip()
+        body = parts[i+2].strip() if i+2 < len(parts) else ''
         sections[name] = body
     return sections
 
