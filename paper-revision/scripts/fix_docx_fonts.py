@@ -5,7 +5,7 @@ Reads an existing .docx, reports font inconsistency, and writes a FIXED
 version with all runs normalized to the most common font size and face.
 Backup the original before running.
 """
-import sys, zipfile, shutil
+import sys, zipfile
 from pathlib import Path
 from collections import Counter
 from lxml import etree
@@ -58,9 +58,14 @@ def main():
 
     doc = etree.fromstring(xml_data)
     sizes = Counter(extract_sizes(doc))
-    # get dominant size
-    dominant_sz = str(sizes.most_common(1)[0][0])
-    dominant_pt = int(dominant_sz) / 2
+    if sizes:
+        dominant_sz = str(sizes.most_common(1)[0][0])
+        dominant_pt = int(dominant_sz) / 2
+    else:
+        dominant_sz = '22'
+        dominant_pt = 11
+        print("No explicit font sizes found (style inheritance) — leaving unchanged; "
+              f"using w:sz={dominant_sz} ({dominant_pt:.0f}pt) only as the report baseline.")
 
     print(f"Input font sizes (half-points): {dict(sizes)}")
     print(f"Dominant: w:sz={dominant_sz} ({dominant_pt:.0f}pt)")
@@ -72,14 +77,23 @@ def main():
     if changed:
         print(f"Changed {changed} font attributes")
 
-    # Reconstruct the .docx
-    shutil.copy(input_path, output_path)
-    with zipfile.ZipFile(output_path, 'a') as zout:
-        zout.writestr('word/document.xml', etree.tostring(doc, xml_declaration=True, encoding='UTF-8', standalone=True))
+    # Rebuild the .docx: copy all original entries, replacing document.xml once.
+    # (Appending a duplicate 'word/document.xml' with ZipFile 'a' produces an
+    # invalid archive that many unzip tools reject.)
+    with zipfile.ZipFile(input_path) as zin, \
+         zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == 'word/document.xml':
+                data = etree.tostring(doc, xml_declaration=True,
+                                      encoding='UTF-8', standalone=True)
+            zout.writestr(item, data)
 
     # verify
     final_sizes = extract_sizes(etree.fromstring(etree.tostring(doc)))
-    if len(set(final_sizes)) == 1:
+    if not final_sizes:
+        print(f"OK: {output_path} — no explicit font sizes (style inheritance), unchanged")
+    elif len(set(final_sizes)) == 1:
         print(f"OK: {output_path} — single font size w:sz={final_sizes[0]}")
     else:
         print(f"WARN: multiple sizes remain: {set(final_sizes)}")
