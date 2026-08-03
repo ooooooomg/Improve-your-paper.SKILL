@@ -74,9 +74,17 @@ def _get_nested(d: dict, target_key: str) -> list:
     return results
 
 def main():
-    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('results')
+    # Usage: python check_data_integrity.py [results/] [--zero-metrics m1,m2,...]
+    args = sys.argv[1:]
+    root = Path(args[0]) if args and not args[0].startswith('--') else Path('results')
+    # 需要检查"不可能零值"的指标名（项目特定，用 --zero-metrics 传入；默认通用集）
+    zero_metrics = ['e_align', 'alignment_error', 'std_iou']
+    if '--zero-metrics' in args:
+        idx = args.index('--zero-metrics')
+        if idx + 1 < len(args):
+            zero_metrics = [m.strip() for m in args[idx + 1].split(',') if m.strip()]
     if not root.exists():
-        print(f"Directory not found: {root}. Usage: python check_data_integrity.py [results/]")
+        print(f"Directory not found: {root}. Usage: python check_data_integrity.py [results/] [--zero-metrics m1,m2,...]")
         sys.exit(1)
 
     files = find_json_files(root)
@@ -102,7 +110,6 @@ def main():
     else:
         print("OK: all timestamps unique.")
 
-    zero_metrics = ['e_align', 'alignment_error', 'std_iou']
     impossible = check_impossible_zeros(files, zero_metrics)
     if impossible:
         print(f"\n=== IMPOSSIBLE ZEROS ===")
