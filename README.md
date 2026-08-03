@@ -8,9 +8,19 @@
 git clone https://github.com/your-username/academic-skills.git
 cp -r academic-skills/paper-revision ~/.claude/skills/
 cp -r academic-skills/code-debug ~/.claude/skills/
+cp -r academic-skills/autodl-training ~/.claude/skills/
 ```
 
-技能在触发条件匹配时自动加载。也可以显式调用 `/paper-revision` 或 `/code-debug`。
+脚本依赖（按需安装）：
+```bash
+# autodl-training 需要 paramiko（SSH/SFTP）
+pip install -r ~/.claude/skills/autodl-training/requirements.txt
+
+# paper-revision 需要 lxml（docx 字体修复）
+pip install -r ~/.claude/skills/paper-revision/requirements.txt
+```
+
+技能在触发条件匹配时自动加载。也可以显式调用 `/paper-revision`、`/code-debug` 或 `/autodl-training`。
 
 ## paper-revision — 论文修改
 
@@ -61,6 +71,30 @@ cp -r academic-skills/code-debug ~/.claude/skills/
 - 验证集不应执行训练增强
 - ImageNet 归一化统计量被误用于其他数据集是收敛慢的常见原因
 
+## autodl-training — 云服务器训练部署与监控
+
+用于在 AutoDL 或其他 SSH 可达的 GPU 服务器上部署并监控远程深度学习训练：代码/数据上传、环境配置、后台启动训练、每小时进度监控与微信推送。
+
+**技能覆盖的问题：**
+
+| 问题 | 方案 |
+|------|------|
+| 本机显存不够，需在云 GPU 上训练 | 完整部署流程：SSH 检查 → 环境配置 → 代码上传 → 权重/数据上传 → nohup 启动训练 |
+| 大数据（10GB+）上传慢、易中断 | `scripts/upload_data.py` 分片断点续传，已传 shard 自动跳过 |
+| Windows 下打包上传失败 | 用 python `tarfile` 而非 subprocess 调 tar（Windows tar 路径坑） |
+| 训练要跑几十小时，想自动监控 | `scripts/monitor_server.py` 服务器端常驻，每小时间隔检查并推送 |
+| 想及时知道训练是否异常 | 自动检测 OOM / NaN / Traceback / 梯度爆炸，微信推送 ⚠️ 警示 |
+| 想把进度推到手机 | `scripts/wxpush.py` 封装 wxpusher API，一条命令推送 |
+| 本机关机后训练进度丢失 | 训练和监控都用 nohup 跑在服务器上，独立于本机 |
+| 想"配置一次后全流程自动" | `scripts/orchestrator.py` 一键：等传输完成 → 自动启动训练 → 自动启动监控推送 |
+
+**技能中包含的 Claude 预训练语料中不存在的内容：**
+
+- AutoDL 服务器 `python` 不在 PATH，须用 `/root/miniconda3/bin/python` 完整路径
+- AutoDL 控制面板磁盘占用显示有刷新延迟，以服务器 `df -h` 为准
+- 服务器镜像自带旧版 torch（如 1.10），训练代码需兼容而非升级服务器
+- AutoDL 按量计费开机即扣费（含传输/空闲），余额只能在网页控制台查看
+
 ## 设计依据
 
 1. **只保留信息增量。** 不写 Claude 已掌握的操作性知识。每条内容都是通用知识库覆盖不到的领域陷阱或经验模式。
@@ -93,8 +127,32 @@ cp -r academic-skills/code-debug ~/.claude/skills/
         ├── debug-checklist.md
         ├── paper-code-mismatches.md
         └── code-cleanup-checklist.md
+└── autodl-training/
+    ├── SKILL.md
+    ├── requirements.txt               # paramiko
+    ├── scripts/
+    │   ├── ssh_helper.py              # SSH/SFTP 连接、命令执行、文件传输
+    │   ├── upload_data.py             # 分片数据上传（断点续传）
+    │   ├── wxpush.py                  # wxpusher 微信推送
+    │   ├── monitor_server.py          # 服务器端每小时训练监控（中文推送）
+    │   ├── orchestrator.py            # 全自动编排：等传输→启动训练→启动监控
+    │   └── start_train.sh             # 远程训练启动模板（nohup 后台）
+    └── references/
+        └── autodl-server-guide.md     # AutoDL 服务器管理速查（环境/磁盘/计费/常见坑）
 ```
 
 ## 许可
 
 MIT
+
+## 局限性
+
+- **skill 是脚手架而非成品**：各 skill 提供的脚本是"工作流模板"，需按你的具体项目配置（路径、凭据、超参、产物命名）后才能运行，不保证开箱即用。
+- **领域示例**：`autodl-training` 的评估章节以图像分割/检测类项目为例，其他领域需替换对应评估协议。
+- **维护性**：随 Claude Code 版本演进，脚本所用 API 可能变化，使用前建议用 `-m py_compile` 或冒烟测试验证。
+
+## 联系
+
+本项目仍在改进中。如有建议、bug 报告或合作意向，欢迎联系作者：
+
+**AshMe** — <AshMe37@outlook.com>
