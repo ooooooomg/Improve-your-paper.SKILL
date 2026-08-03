@@ -1,8 +1,7 @@
 # Academic Skills for Claude Code
 
-Two Claude Code skills distilled from a full revise-and-resubmit cycle (3 reviewers, 16 comments), covering paper revision and ML code debugging. Field-agnostic — no journal, dataset, or method lock-in.
+Three Claude Code skills distilled from a full revise-and-resubmit cycle (3 reviewers, 16 comments), covering paper revision, ML code debugging, and remote GPU training deployment/monitoring. Field-agnostic — no journal, dataset, or method lock-in.
 
-此技能从真实结合 AI 完成论文大修的实际经验中得出，希望能帮到从 0 开始科研的你。如果在使用中有任何问题或改进建议，欢迎联系作者 AshMe37@outlook.com。
 
 ## Installation
 
@@ -10,9 +9,19 @@ Two Claude Code skills distilled from a full revise-and-resubmit cycle (3 review
 git clone https://github.com/your-username/academic-skills.git
 cp -r academic-skills/paper-revision ~/.claude/skills/
 cp -r academic-skills/code-debug ~/.claude/skills/
+cp -r academic-skills/autodl-training ~/.claude/skills/
 ```
 
-Skills load automatically when trigger conditions match. Can also be invoked explicitly: `/paper-revision` or `/code-debug`.
+Script dependencies (install as needed):
+```bash
+# autodl-training needs paramiko (SSH/SFTP)
+pip install -r ~/.claude/skills/autodl-training/requirements.txt
+
+# paper-revision needs lxml (docx font repair)
+pip install -r ~/.claude/skills/paper-revision/requirements.txt
+```
+
+Skills load automatically when trigger conditions match. Can also be invoked explicitly: `/paper-revision`, `/code-debug` or `/autodl-training`.
 
 ## paper-revision — Paper Revision
 
@@ -63,6 +72,30 @@ For debugging ML training crashes (NaN, OOM, shape mismatch, gradient issues), v
 - Validation set must not receive training augmentations
 - Reusing ImageNet normalization statistics on custom datasets causes slow convergence
 
+## autodl-training — Cloud GPU Training Deployment & Monitoring
+
+For deploying and monitoring remote deep-learning training on AutoDL or any SSH-reachable GPU server: code/data upload, environment setup, background training launch, hourly progress monitoring, and WeChat push notifications.
+
+**Problems covered:**
+
+| Problem | Solution |
+|------|------|
+| Not enough local VRAM; need cloud GPU training | Full deployment flow: SSH check → env setup → code upload → weights/data upload → nohup training launch |
+| Large data (10GB+) upload is slow and interrupt-prone | `scripts/upload_data.py` sharded upload with resume; already-verified shards are skipped |
+| Packing fails on Windows | Use python `tarfile`, not subprocess `tar` (Windows tar path pitfall) |
+| Training runs for dozens of hours; want automated monitoring | `scripts/monitor_server.py` runs server-side, checks hourly and pushes |
+| Want to know immediately if training goes wrong | Auto-detects OOM / NaN / Traceback / gradient explosion, pushes ⚠️ alert to WeChat |
+| Want progress pushed to phone | `scripts/wxpush.py` wraps the wxpusher API, one-command push |
+| Losing training progress when local machine powers off | Training and monitoring both run server-side via nohup, independent of the local machine |
+| Want "configure once, run the whole pipeline automatically" | `scripts/orchestrator.py` one-shot: wait for uploads → auto-start training → auto-start monitor |
+
+**Knowledge not present in Claude's pretraining corpus:**
+
+- AutoDL server `python` is not on PATH; must use full path `/root/miniconda3/bin/python`
+- AutoDL console disk-usage display lags; trust server `df -h` instead
+- Server images ship older torch (e.g. 1.10); adapt training code to the server, don't upgrade the server
+- AutoDL is pay-as-you-go, billed from boot (including transfer/idle time); balance is only viewable in the web console
+
 ## Design Principles
 
 1. **Information-delta only.** Nothing already known to Claude is included. Every line is a domain trap or experience pattern absent from general training data.
@@ -95,8 +128,33 @@ For debugging ML training crashes (NaN, OOM, shape mismatch, gradient issues), v
         ├── debug-checklist.md
         ├── paper-code-mismatches.md
         └── code-cleanup-checklist.md
+└── autodl-training/
+    ├── SKILL.md
+    ├── requirements.txt               # paramiko
+    ├── scripts/
+    │   ├── ssh_helper.py              # SSH/SFTP connect, command exec, file transfer
+    │   ├── upload_data.py             # Sharded data upload with resume
+    │   ├── wxpush.py                  # wxpusher WeChat push
+    │   ├── monitor_server.py          # Server-side hourly training monitor (Chinese push)
+    │   ├── orchestrator.py            # Full pipeline: wait uploads → start training → start monitor
+    │   └── start_train.sh             # Remote training launch template (nohup background)
+    └── references/
+        └── autodl-server-guide.md     # AutoDL server quick reference (env/disk/billing/pitfalls)
 ```
 
 ## License
 
 MIT
+
+## Limitations
+
+- **Skills are scaffolding, not turnkey products**: the scripts are workflow templates that must be configured for your specific project (paths, credentials, hyperparameters, artifact naming). They are not guaranteed to run out of the box.
+- **Domain examples**: the evaluation section of `autodl-training` uses image segmentation/detection as an example; other domains need their own evaluation protocol.
+- **Maintenance**: as Claude Code evolves, the APIs used by the scripts may change. Verify with `-m py_compile` or a smoke test before relying on them.
+
+## Contact
+
+This project is under active improvement. For suggestions, bug reports, or collaboration, contact the author:
+
+**AshMe** — <AshMe37@outlook.com>
+
